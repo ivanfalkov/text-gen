@@ -1,4 +1,4 @@
-"""Local artifact I/O: save datasets, predictions, metrics, configs."""
+"""Local artifact I/O."""
 from __future__ import annotations
 
 import json
@@ -21,23 +21,21 @@ def create_run_dir(root: Path, experiment_name: str) -> Path:
     return run_dir
 
 
-def save_json(data: dict[str, Any] | list, path: Path) -> None:
+def save_json(data: Any, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     logger.debug("saved json: %s", path)
 
 
-def save_dataset(data: pd.DataFrame, path: Path) -> None:
-    """Save loaded/split dataset as jsonl (dialogue + summary + id)."""
+def save_split(data: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = [c for c in ("id", "dialogue", "summary") if c in data.columns]
     data[columns].to_json(path, orient="records", lines=True, force_ascii=False)
-    logger.info("saved dataset artifact: %d rows -> %s", len(data), path)
+    logger.info("saved split artifact: %d rows -> %s", len(data), path)
 
 
 def save_predictions(data: pd.DataFrame, predictions: list[str], path: Path) -> None:
-    """Save predictions as jsonl alongside references."""
     path.parent.mkdir(parents=True, exist_ok=True)
     output = pd.DataFrame({
         "id": data["id"] if "id" in data.columns else range(len(data)),

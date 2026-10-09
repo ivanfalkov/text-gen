@@ -8,12 +8,8 @@ paths:
 
 splits:
   train: train
-  val: val
-  test: test
-  train_val_size: 500
-
-evaluation:
-  split: val          # на каком сплите считать финальную метрику
+  val_holdout: validation
+  val_size: 500
 
 seed: 42
 

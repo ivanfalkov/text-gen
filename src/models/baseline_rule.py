@@ -2,17 +2,18 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
+import pandas as pd
+
+from src.utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 _SENT_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+")
 
 
 def split_sentences(text: str, mode: str = "regex") -> list[str]:
-    """Split a dialogue into sentences.
-
-    mode='regex'  -> split on . ! ? … followed by whitespace
-    mode='newline'-> split on line breaks (each turn as one "sentence")
-    """
     text = text.strip()
     if not text:
         return []
@@ -34,12 +35,7 @@ def truncate_words(text: str, max_words: int | None) -> str:
     return " ".join(words[:max_words])
 
 
-def first_last_sentence(
-    dialogue: str,
-    max_words: int | None = 50,
-    sentence_splitter: str = "regex",
-) -> str:
-    """Build a summary as 'first sentence + last sentence' of the dialogue."""
+def summarize(dialogue: str, max_words: int | None = 50, sentence_splitter: str = "regex") -> str:
     sentences = split_sentences(dialogue, mode=sentence_splitter)
 
     if not sentences:
@@ -50,3 +46,20 @@ def first_last_sentence(
         summary = f"{sentences[0]} {sentences[-1]}"
 
     return truncate_words(summary, max_words)
+
+
+def predict(data: dict[str, pd.DataFrame], config: dict[str, Any]) -> dict[str, list[str]]:
+    """Generate summaries for every split in `data`."""
+    model_cfg = config["model"]
+    max_words = model_cfg["max_words"]
+    sentence_splitter = model_cfg["sentence_splitter"]
+
+    predictions: dict[str, list[str]] = {}
+    for name, df in data.items():
+        predictions[name] = [
+            summarize(dialogue, max_words=max_words, sentence_splitter=sentence_splitter)
+            for dialogue in df["dialogue"].tolist()
+        ]
+        logger.info("predicted split '%s': %d rows", name, len(predictions[name]))
+
+    return predictions
