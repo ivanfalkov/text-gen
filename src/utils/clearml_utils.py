@@ -17,7 +17,12 @@ def init_task(project_name: str, task_name: str, params: dict[str, Any] | None =
         return None
 
     logger.info("initializing ClearML task %s/%s", project_name, task_name)
-    task = Task.init(project_name=project_name, task_name=task_name, reuse_last_task_id=False)
+    task = Task.init(
+        project_name=project_name,
+         task_name=task_name,
+        reuse_last_task_id=False,
+        auto_connect_frameworks=False,
+    )
     if params is not None:
         task.connect(params)
     logger.info("ClearML task id: %s", task.id)

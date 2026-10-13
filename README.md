@@ -19,3 +19,27 @@
 2. Средняя длина диалога и саммари 131 и 28 соответвенно  
 3. Есть одинаковые диалоги 2 штуки, но это нормально, так как саммари разное. Возможно разные разметчики сделали разное самари у одинаковых диалогов.  
 4. Есть одинаковые саммари 24 шт, но диалоги у них разные. Это тоже нормально.  
+
+
+# Infra
+### WSL
+ткрыть PowerShell от имени администратора, выполнить `wsl --install`, перезагрузить компьютер. Открыть Ubuntu через меню Пуск, при первом запуске задать логин и пароль Linux (не связан с Windows-аккаунтом). Проверить, что WSL видит GPU: `nvidia-smi` — должна показаться RTX 4060 Laptop. Если пусто — обновить драйвер NVIDIA для Windows и перезапустить WSL: `wsl --shutdown` из PowerShell, потом заново открыть Ubuntu.
+
+**Установка uv в WSL**
+
+Установить uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`. Добавить в PATH: `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`. uv venv --python 3.12 .Проверить: `uv --version`.
+**подключить репозиторий NVIDIA и установить cuDNN**
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt update
+sudo apt install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
+sudo apt install -y libnccl2 libnccl-dev
+sudo ldconfig
+
+**Настройка окружения под Linux**
+
+Задать отдельный каталог для venv, чтобы не конфликтовал с Windows: `echo 'export UV_PROJECT_ENVIRONMENT=".venv_linux"' >> ~/.bashrc && source ~/.bashrc`. Перейти в проект: `cd /mnt/c/Users/Ivan/Documents/projects/text-gen` (здесь `/mnt/c/...` — доступ к диску `C:\` из Linux). Синхронизировать зависимости: `uv sync` — uv создаст `.venv_linux` и установит всё из `pyproject.toml`. Установить PyTorch с CUDA: `uv pip install torch --index-url https://download.pytorch.org/whl/cu124`. Проверить GPU: `uv run python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"` — ожидается `2.5.x+cu124`, `True`, `NVIDIA GeForce RTX 4060 Laptop GPU`. Установить vLLM: `uv pip install vllm`. Проверить импорт: `uv run python -c "import vllm; print(vllm.__version__)"`.
+
+**Ежедневный запуск**
+
+Открыть Ubuntu (через меню Пуск или команду `wsl` в PowerShell), перейти в проект: `cd /mnt/c/Users/Ivan/Documents/projects/text-gen`, запустить нужный скрипт: `uv run python experiments/run_baseline_rule.py`. Для отладки с подробными логами: `uv run python experiments/run_baseline_rule.py --verbose`.
