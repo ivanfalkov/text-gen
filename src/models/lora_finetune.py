@@ -40,7 +40,7 @@ def train(
 
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        dtype="bfloat16",
+        torch_dtype="bfloat16",
         device_map="auto",
     )
 
@@ -54,7 +54,8 @@ def train(
     )
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
-
+    model.enable_input_require_grads()
+    
     def to_text(df: pd.DataFrame) -> list[dict]:
         return [
             {"text": _format_prompt(row["dialogue"], prompt_template) + row["summary"] + tokenizer.eos_token}
