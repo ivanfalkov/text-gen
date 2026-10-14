@@ -120,19 +120,23 @@ def predict_with_lora(
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
 
-    model_name = config["model"]["name"]
+    model_cfg = config["model"]
     gen_cfg = config["generation"]
     prompt_template = config["prompt"]
 
     logger.info("loading vLLM with LoRA adapter from %s", adapter_dir)
     llm = LLM(
-        model=model_name,
+        model=model_cfg["name"],
         enable_lora=True,
         max_lora_rank=config["lora"]["r"],
-        gpu_memory_utilization=0.7,
-        max_model_len=config["model"]["max_model_len"],
-        enforce_eager=True,
+        gpu_memory_utilization=model_cfg.get("gpu_memory_utilization", 0.85),
+        max_model_len=model_cfg.get("max_model_len", 2048),
+        kv_cache_dtype=model_cfg.get("kv_cache_dtype", "auto"),
+        max_num_seqs=model_cfg.get("max_num_seqs", 16),
+        max_num_batched_tokens=model_cfg.get("max_num_batched_tokens", 2048),
+        enforce_eager=model_cfg.get("enforce_eager", True),
     )
+
     sampling_params = SamplingParams(
         temperature=gen_cfg["temperature"],
         max_tokens=gen_cfg["max_tokens"],

@@ -2,7 +2,12 @@ experiment_name: lora
 
 model:
   name: Qwen/Qwen2.5-0.5B-Instruct
-  max_model_len: 2048
+  max_model_len: 1536           # по замеру токенов
+  gpu_memory_utilization: 0.85
+  kv_cache_dtype: fp8
+  max_num_seqs: 8               # вместо 16, ещё меньше кэша
+  max_num_batched_tokens: 2048
+  enforce_eager: true
 
 lora:
   r: 16
