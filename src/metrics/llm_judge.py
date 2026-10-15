@@ -1,4 +1,5 @@
 """LLM-as-judge evaluation via Groq."""
+
 from __future__ import annotations
 
 import json
@@ -58,10 +59,11 @@ class Judge:
         self.metric_names: list[str] = list(self.metrics)
 
     def _prompt(self, dialogue: str, summary: str) -> str:
-        criteria = "\n".join(
-            f"- {name}: {desc}" for name, desc in self.metrics.items()
-        )
-        example = {name: f"<int {self.score_min}-{self.score_max}>" for name in self.metric_names}
+        criteria = "\n".join(f"- {name}: {desc}" for name, desc in self.metrics.items())
+        example = {
+            name: f"<int {self.score_min}-{self.score_max}>"
+            for name in self.metric_names
+        }
         example["reasoning"] = "<short explanation>"
         return (
             "You are evaluating a dialogue summary.\n\n"
@@ -125,14 +127,22 @@ class Judge:
                     raise DailyRateLimitExceeded(str(e)) from e
                 logger.warning(
                     "judge call failed (attempt %d/%d): %s",
-                    attempt + 1, self.max_retries, e,
+                    attempt + 1,
+                    self.max_retries,
+                    e,
                 )
                 if attempt < self.max_retries - 1:
-                    time.sleep(self.sleep_between * (2 ** attempt))
+                    time.sleep(self.sleep_between * (2**attempt))
         return self._failed_result()
 
 
-def make_record(row: Any, model_name: str, index: int, result: dict[str, Any], metric_names: list[str]) -> dict[str, Any]:
+def make_record(
+    row: Any,
+    model_name: str,
+    index: int,
+    result: dict[str, Any],
+    metric_names: list[str],
+) -> dict[str, Any]:
     row_id = row.get("id", index)
     if hasattr(row_id, "item"):
         row_id = row_id.item()
@@ -149,11 +159,19 @@ def make_record(row: Any, model_name: str, index: int, result: dict[str, Any], m
     return record
 
 
-def log_record(record: dict[str, Any], index: int, total: int, metric_names: list[str], preview_chars: int) -> None:
+def log_record(
+    record: dict[str, Any],
+    index: int,
+    total: int,
+    metric_names: list[str],
+    preview_chars: int,
+) -> None:
     scores = " ".join(f"{name}={record.get(name)}" for name in metric_names)
     logger.info(
         "\n--- [%s] row %d/%d ---\nDIALOGUE:   %s\nREFERENCE:  %s\nPREDICTION: %s\nSCORES:     %s\nREASONING:  %s",
-        record["model"], index, total,
+        record["model"],
+        index,
+        total,
         _truncate(str(record["dialogue"]), preview_chars),
         str(record["reference"]).strip(),
         str(record["prediction"]).strip(),
@@ -162,8 +180,12 @@ def log_record(record: dict[str, Any], index: int, total: int, metric_names: lis
     )
 
 
-def summarize(records: list[dict[str, Any]], metric_names: list[str]) -> dict[str, float | int]:
-    scored = [r for r in records if all(r.get(name) is not None for name in metric_names)]
+def summarize(
+    records: list[dict[str, Any]], metric_names: list[str]
+) -> dict[str, float | int]:
+    scored = [
+        r for r in records if all(r.get(name) is not None for name in metric_names)
+    ]
     n_scored = len(scored)
 
     averages: dict[str, float | int] = {}

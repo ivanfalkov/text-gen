@@ -1,4 +1,5 @@
 """LLM inference via vLLM for summarization."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -32,18 +33,26 @@ class Summarizer:
         )
         self.prompt_template = config["prompt"]
 
-    def predict(self, data: dict[str, pd.DataFrame], config: dict[str, Any]) -> dict[str, list[str]]:
+    def predict(
+        self, data: dict[str, pd.DataFrame], config: dict[str, Any]
+    ) -> dict[str, list[str]]:
         predictions: dict[str, list[str]] = {}
         for name, df in data.items():
-            prompts = [self.prompt_template.format(dialogue=d) for d in df["dialogue"].tolist()]
-            logger.info("generating summaries for split '%s' (%d rows)", name, len(prompts))
+            prompts = [
+                self.prompt_template.format(dialogue=d) for d in df["dialogue"].tolist()
+            ]
+            logger.info(
+                "generating summaries for split '%s' (%d rows)", name, len(prompts)
+            )
             outputs = self.llm.generate(prompts, self.sampling_params)
             predictions[name] = [o.outputs[0].text.strip() for o in outputs]
             logger.info("predicted split '%s': %d rows", name, len(predictions[name]))
         return predictions
 
 
-def predict(data: dict[str, pd.DataFrame], config: dict[str, Any]) -> dict[str, list[str]]:
+def predict(
+    data: dict[str, pd.DataFrame], config: dict[str, Any]
+) -> dict[str, list[str]]:
     """Entry point used by experiment scripts."""
     summarizer = Summarizer(config)
     return summarizer.predict(data, config)

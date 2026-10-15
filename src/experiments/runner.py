@@ -1,8 +1,10 @@
 """Pipeline steps for experiments: data, predictions, metrics, config."""
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 
@@ -55,7 +57,9 @@ def load_data(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
 
     raw_train = load_split(jsonl_dir, splits_cfg["train"])
     raw_val_holdout = load_split(jsonl_dir, splits_cfg["val_holdout"])
-    logger.info("loaded raw train=%d, val_holdout=%d", len(raw_train), len(raw_val_holdout))
+    logger.info(
+        "loaded raw train=%d, val_holdout=%d", len(raw_train), len(raw_val_holdout)
+    )
 
     train_df, val_df = split_train_val(
         raw_train,
@@ -70,7 +74,9 @@ def load_data(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     }
 
 
-def save_data_artifacts(data: dict[str, pd.DataFrame], run_dir: Path, task=None) -> None:
+def save_data_artifacts(
+    data: dict[str, pd.DataFrame], run_dir: Path, task=None
+) -> None:
     for name, df in data.items():
         path = run_dir / f"data_{name}.jsonl"
         artifact_utils.save_split(df, path)
@@ -103,6 +109,8 @@ def evaluate_all(
         all_metrics[name] = metrics
         artifact_utils.save_metrics(metrics, run_dir / f"metrics_{name}.json")
         clearml_utils.log_metrics(task, metrics, title=name)
-        clearml_utils.upload_artifact(task, f"metrics_{name}", run_dir / f"metrics_{name}.json")
+        clearml_utils.upload_artifact(
+            task, f"metrics_{name}", run_dir / f"metrics_{name}.json"
+        )
         logger.info("[%s] %s", name, metrics)
     return all_metrics

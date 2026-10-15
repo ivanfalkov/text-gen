@@ -1,4 +1,5 @@
 """Local artifact I/O."""
+
 from __future__ import annotations
 
 import json
@@ -37,12 +38,14 @@ def save_split(data: pd.DataFrame, path: Path) -> None:
 
 def save_predictions(data: pd.DataFrame, predictions: list[str], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    output = pd.DataFrame({
-        "id": data["id"] if "id" in data.columns else range(len(data)),
-        "dialogue": data["dialogue"],
-        "reference": data["summary"],
-        "prediction": predictions,
-    })
+    output = pd.DataFrame(
+        {
+            "id": data["id"] if "id" in data.columns else range(len(data)),
+            "dialogue": data["dialogue"],
+            "reference": data["summary"],
+            "prediction": predictions,
+        }
+    )
     output.to_json(path, orient="records", lines=True, force_ascii=False)
     logger.info("saved predictions artifact: %d rows -> %s", len(output), path)
 

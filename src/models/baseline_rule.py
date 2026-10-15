@@ -1,4 +1,5 @@
 """Rule-based summarization: first + last sentence of the dialogue."""
+
 from __future__ import annotations
 
 import re
@@ -35,7 +36,9 @@ def truncate_words(text: str, max_words: int | None) -> str:
     return " ".join(words[:max_words])
 
 
-def summarize(dialogue: str, max_words: int | None = 50, sentence_splitter: str = "regex") -> str:
+def summarize(
+    dialogue: str, max_words: int | None = 50, sentence_splitter: str = "regex"
+) -> str:
     sentences = split_sentences(dialogue, mode=sentence_splitter)
 
     if not sentences:
@@ -48,7 +51,9 @@ def summarize(dialogue: str, max_words: int | None = 50, sentence_splitter: str 
     return truncate_words(summary, max_words)
 
 
-def predict(data: dict[str, pd.DataFrame], config: dict[str, Any]) -> dict[str, list[str]]:
+def predict(
+    data: dict[str, pd.DataFrame], config: dict[str, Any]
+) -> dict[str, list[str]]:
     """Generate summaries for every split in `data`."""
     model_cfg = config["model"]
     max_words = model_cfg["max_words"]
@@ -57,7 +62,9 @@ def predict(data: dict[str, pd.DataFrame], config: dict[str, Any]) -> dict[str, 
     predictions: dict[str, list[str]] = {}
     for name, df in data.items():
         predictions[name] = [
-            summarize(dialogue, max_words=max_words, sentence_splitter=sentence_splitter)
+            summarize(
+                dialogue, max_words=max_words, sentence_splitter=sentence_splitter
+            )
             for dialogue in df["dialogue"].tolist()
         ]
         logger.info("predicted split '%s': %d rows", name, len(predictions[name]))

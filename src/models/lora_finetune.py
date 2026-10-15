@@ -1,14 +1,15 @@
 """LoRA fine-tuning and vLLM inference with the trained adapter."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from peft import LoraConfig, get_peft_model, TaskType
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl import SFTTrainer, SFTConfig
 from datasets import Dataset
+from peft import LoraConfig, TaskType, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from trl import SFTConfig, SFTTrainer
 
 from src.utils.logging_utils import get_logger
 
@@ -55,10 +56,14 @@ def train(
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
     model.enable_input_require_grads()
-    
+
     def to_text(df: pd.DataFrame) -> list[dict]:
         return [
-            {"text": _format_prompt(row["dialogue"], prompt_template) + row["summary"] + tokenizer.eos_token}
+            {
+                "text": _format_prompt(row["dialogue"], prompt_template)
+                + row["summary"]
+                + tokenizer.eos_token
+            }
             for _, row in df.iterrows()
         ]
 

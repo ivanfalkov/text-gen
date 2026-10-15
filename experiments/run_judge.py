@@ -1,4 +1,5 @@
 """Entry point: LLM-as-judge evaluation of all experiments."""
+
 from __future__ import annotations
 
 import argparse
@@ -29,15 +30,18 @@ JUDGE_RESULTS_PATH = Path("artifacts/judge_results.json")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=Path, default=Path("configs/experiments/judge.yaml"))
+    parser.add_argument(
+        "--config", type=Path, default=Path("configs/experiments/judge.yaml")
+    )
     parser.add_argument("--limit", type=int, default=None)
     return parser.parse_args()
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        f.writelines(
+            json.dumps(record, ensure_ascii=False) + "\n" for record in records
+        )
 
 
 def _save(
@@ -47,7 +51,9 @@ def _save(
     JUDGE_DIR.mkdir(parents=True, exist_ok=True)
     for name, records in records_by_model.items():
         _write_jsonl(JUDGE_DIR / f"{name}.jsonl", records)
-    results = {name: summarize(recs, metric_names) for name, recs in records_by_model.items()}
+    results = {
+        name: summarize(recs, metric_names) for name, recs in records_by_model.items()
+    }
     JUDGE_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(JUDGE_RESULTS_PATH, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)

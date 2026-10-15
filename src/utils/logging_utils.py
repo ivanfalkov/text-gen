@@ -1,4 +1,5 @@
 """Project-wide logging setup."""
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,9 @@ def setup_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger()
     if not root.handlers:
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(logging.Formatter(_DEFAULT_FORMAT, datefmt=_DEFAULT_DATEFMT))
+        handler.setFormatter(
+            logging.Formatter(_DEFAULT_FORMAT, datefmt=_DEFAULT_DATEFMT)
+        )
         root.addHandler(handler)
 
     root.setLevel(level)

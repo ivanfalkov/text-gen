@@ -1,4 +1,5 @@
 """Entry point: rule-based baseline (first + last sentence) on train/val/test."""
+
 from __future__ import annotations
 
 import argparse

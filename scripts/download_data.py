@@ -8,6 +8,7 @@ Usage:
     uv run python scripts/download_data.py --slug marawanxmamdouh/dialogsum
     uv run python scripts/download_data.py --out data/raw --force
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,7 +23,11 @@ from dotenv import load_dotenv
 
 DEFAULT_SLUG = "marawanxmamdouh/dialogsum"
 # Ожидаемые файлы после распаковки DialogSum (jsonl-версия с Kaggle).
-EXPECTED_FILES = ("dialogsum.train.jsonl", "dialogsum.dev.jsonl", "dialogsum.test.jsonl")
+EXPECTED_FILES = (
+    "dialogsum.train.jsonl",
+    "dialogsum.dev.jsonl",
+    "dialogsum.test.jsonl",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,10 +89,7 @@ def load_kaggle_env() -> None:
 
 def ensure_kaggle_cli() -> None:
     if shutil.which("kaggle") is None:
-        sys.exit(
-            "[download] kaggle CLI not found.\n"
-            "  Install it: uv add kaggle"
-        )
+        sys.exit("[download] kaggle CLI not found.\n  Install it: uv add kaggle")
 
 
 def already_downloaded(out_dir: Path) -> bool:
