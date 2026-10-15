@@ -1,0 +1,14 @@
+experiment_name: judge
+
+judge:
+  model: openai/gpt-oss-120b
+  max_retries: 5
+  sleep_between: 4.0
+
+data:
+  limit: 100
+
+prediction_files:
+  baseline_rule: artifacts/baseline_rule/20261009-125058/predictions_val_holdout.jsonl
+  baseline_llm: artifacts/baseline_llm/20261013-124648/predictions_val_holdout.jsonl
+  lora: artifacts/lora/20261014-103933/predictions_val_holdout.jsonl
