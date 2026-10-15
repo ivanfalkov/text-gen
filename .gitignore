@@ -2,7 +2,8 @@
 .venv/
 .venv_*/
 venv/
-
+# .ruff_cache
+.ruff_cache/
 # Python
 __pycache__/
 *.py[cod]
@@ -22,5 +23,5 @@ checkpoints/
 # Env
 .env
 
-# PROJECT_NOTES.md
-PROJECT_NOTES.md
+
+cuda-keyring_1.1-1_all.deb
