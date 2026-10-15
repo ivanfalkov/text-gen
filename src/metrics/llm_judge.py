@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -12,31 +13,25 @@ from src.utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
-DIALOGUE_PREVIEW_CHARS = 200
+
+class DailyRateLimitExceeded(Exception):
+    """Groq daily quota (RPD/TPD) is exhausted; retries will not help today."""
 
 
-JUDGE_PROMPT = """You are evaluating a dialogue summary.
-
-Given the dialogue and a candidate summary, rate the candidate on a scale of 1-5 for each criterion:
-
-- faithfulness: does the summary only contain facts that are present in the dialogue? (1 = many hallucinations, 5 = fully grounded in the dialogue)
-- completeness: does the summary capture the key points of the dialogue? (1 = misses most key points, 5 = captures all key points)
-- conciseness: is the summary appropriately brief without losing important information? (1 = too verbose or too short, 5 = well-balanced)
-
-Dialogue:
-{dialogue}
-
-Candidate summary:
-{summary}
-
-IMPORTANT: Respond with ONLY a valid JSON object. Do NOT include any reasoning, explanations, or markdown formatting. Your entire response must be parseable as JSON.
-
-{{"faithfulness": <int 1-5>, "completeness": <int 1-5>, "conciseness": <int 1-5>, "reasoning": "<short explanation>"}}"""
-
-
-def _truncate(text: str, limit: int = DIALOGUE_PREVIEW_CHARS) -> str:
+def _truncate(text: str, limit: int) -> str:
     text = text.strip().replace("\n", " ")
     return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _is_daily_rate_limit(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    if "rate limit" not in msg and "429" not in msg:
+        return False
+    if any(token in msg for token in ("per day", "per-day", "rpd", "tpd")):
+        return True
+    if any(token in msg for token in ("per minute", "per-minute", "rpm", "tpm")):
+        return False
+    return re.search(r"\d+\s*h", msg) is not None
 
 
 class Judge:
@@ -45,126 +40,137 @@ class Judge:
         if not api_key:
             raise ValueError("GROQ_API_KEY not set in environment")
 
+        cfg = config["judge"]
         self.client = OpenAI(
             base_url="https://api.groq.com/openai/v1",
             api_key=api_key,
-            max_retries=0,  # свои retry ниже
+            max_retries=0,
         )
-        self.model = config["judge"]["model"]
-        self.max_retries = config["judge"].get("max_retries", 3)
-        self.sleep_between = config["judge"].get("sleep_between", 4.0)
+        self.model: str = cfg["model"]
+        self.max_retries: int = cfg.get("max_retries", 3)
+        self.sleep_between: float = cfg.get("sleep_between", 4.0)
+        self.temperature: float = cfg.get("temperature", 0.0)
+        self.max_tokens: int = cfg.get("max_tokens", 2048)
+        self.preview_chars: int = cfg.get("dialogue_preview_chars", 200)
+        self.score_min: int = cfg.get("score_min", 1)
+        self.score_max: int = cfg.get("score_max", 5)
+        self.metrics: dict[str, str] = cfg["metrics"]
+        self.metric_names: list[str] = list(self.metrics)
 
-    def _call_api(self, dialogue: str, summary: str) -> dict:
-        prompt = JUDGE_PROMPT.format(dialogue=dialogue, summary=summary)
+    def _prompt(self, dialogue: str, summary: str) -> str:
+        criteria = "\n".join(
+            f"- {name}: {desc}" for name, desc in self.metrics.items()
+        )
+        example = {name: f"<int {self.score_min}-{self.score_max}>" for name in self.metric_names}
+        example["reasoning"] = "<short explanation>"
+        return (
+            "You are evaluating a dialogue summary.\n\n"
+            f"Given the dialogue and a candidate summary, rate the candidate on a scale of "
+            f"{self.score_min}-{self.score_max} for each criterion:\n\n"
+            f"{criteria}\n\n"
+            f"Dialogue:\n{dialogue}\n\n"
+            f"Candidate summary:\n{summary}\n\n"
+            "IMPORTANT: Respond with ONLY a valid JSON object. Do NOT include any reasoning, "
+            "explanations, or markdown formatting. Your entire response must be parseable as JSON.\n\n"
+            f"{json.dumps(example)}"
+        )
+
+    def _json_schema(self) -> dict[str, Any]:
+        properties: dict[str, Any] = {
+            name: {
+                "type": "integer",
+                "minimum": self.score_min,
+                "maximum": self.score_max,
+            }
+            for name in self.metric_names
+        }
+        properties["reasoning"] = {"type": "string"}
+        required = [*self.metric_names, "reasoning"]
+        return {
+            "type": "object",
+            "properties": properties,
+            "required": required,
+            "additionalProperties": False,
+        }
+
+    def _failed_result(self) -> dict[str, Any]:
+        result: dict[str, Any] = {name: None for name in self.metric_names}
+        result["reasoning"] = "failed"
+        return result
+
+    def _call_api(self, dialogue: str, summary: str) -> dict[str, Any]:
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=2048,
+            messages=[{"role": "user", "content": self._prompt(dialogue, summary)}],
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
             response_format={
                 "type": "json_schema",
                 "json_schema": {
                     "name": "judge_scores",
                     "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "faithfulness": {"type": "integer", "minimum": 1, "maximum": 5},
-                            "completeness": {"type": "integer", "minimum": 1, "maximum": 5},
-                            "conciseness": {"type": "integer", "minimum": 1, "maximum": 5},
-                            "reasoning": {"type": "string"},
-                        },
-                        "required": ["faithfulness", "completeness", "conciseness", "reasoning"],
-                        "additionalProperties": False,
-                    },
+                    "schema": self._json_schema(),
                 },
             },
         )
         content = response.choices[0].message.content
         return json.loads(content)
 
-    def score(self, dialogue: str, summary: str) -> dict:
+    def score(self, dialogue: str, summary: str) -> dict[str, Any]:
         for attempt in range(self.max_retries):
             try:
                 return self._call_api(dialogue, summary)
             except Exception as e:
+                if _is_daily_rate_limit(e):
+                    raise DailyRateLimitExceeded(str(e)) from e
                 logger.warning(
                     "judge call failed (attempt %d/%d): %s",
                     attempt + 1, self.max_retries, e,
                 )
                 if attempt < self.max_retries - 1:
                     time.sleep(self.sleep_between * (2 ** attempt))
-        return {
-            "faithfulness": None,
-            "completeness": None,
-            "conciseness": None,
-            "reasoning": "failed",
-        }
+        return self._failed_result()
 
 
-def evaluate_predictions(
-    predictions_df,
-    config: dict[str, Any],
-    model_name: str,
-    limit: int | None = None,
-) -> tuple[dict[str, float], list[dict]]:
-    """Run judge on each row. Returns (averages, raw_records)."""
-    judge = Judge(config)
-
-    if limit:
-        predictions_df = predictions_df.head(limit)
-        logger.info("judge limit applied: %d rows", len(predictions_df))
-
-    metric_names = ("faithfulness", "completeness", "conciseness")
-    scores: dict[str, list[int]] = {name: [] for name in metric_names}
-    raw_records: list[dict] = []
-    failed = 0
-
-    total = len(predictions_df)
-    for i, (_, row) in enumerate(predictions_df.iterrows(), start=1):
-        result = judge.score(row["dialogue"], row["prediction"])
-        ok = result.get("faithfulness") is not None
-        if ok:
-            for name in metric_names:
-                if result.get(name) is not None:
-                    scores[name].append(result[name])
-        else:
-            failed += 1
-
-        record = {
-            "id": row.get("id", i),
-            "model": model_name,
-            "dialogue": row["dialogue"],
-            "reference": row["reference"],
-            "prediction": row["prediction"],
-            "faithfulness": result.get("faithfulness"),
-            "completeness": result.get("completeness"),
-            "conciseness": result.get("conciseness"),
-            "reasoning": result.get("reasoning", ""),
-        }
-        raw_records.append(record)
-
-        logger.info(
-            "\n─── [%s] row %d/%d ───\nDIALOGUE:   %s\nREFERENCE:  %s\nPREDICTION: %s\nSCORES:     faithfulness=%s completeness=%s conciseness=%s\nREASONING:  %s",
-            model_name, i, total,
-            _truncate(row["dialogue"]),
-            row["reference"].strip(),
-            row["prediction"].strip(),
-            result.get("faithfulness"),
-            result.get("completeness"),
-            result.get("conciseness"),
-            (result.get("reasoning") or "").strip(),
-        )
-
-        time.sleep(judge.sleep_between)
-
-    def _mean(values: list[int]) -> float:
-        return sum(values) / len(values) if values else 0.0
-
-    averages = {
-        "judge_faithfulness": _mean(scores["faithfulness"]),
-        "judge_completeness": _mean(scores["completeness"]),
-        "judge_conciseness": _mean(scores["conciseness"]),
-        "judge_failed": failed,
+def make_record(row: Any, model_name: str, index: int, result: dict[str, Any], metric_names: list[str]) -> dict[str, Any]:
+    row_id = row.get("id", index)
+    if hasattr(row_id, "item"):
+        row_id = row_id.item()
+    record: dict[str, Any] = {
+        "id": row_id,
+        "model": model_name,
+        "dialogue": row["dialogue"],
+        "reference": row["reference"],
+        "prediction": row["prediction"],
     }
-    return averages, raw_records
+    for name in metric_names:
+        record[name] = result.get(name)
+    record["reasoning"] = result.get("reasoning", "")
+    return record
+
+
+def log_record(record: dict[str, Any], index: int, total: int, metric_names: list[str], preview_chars: int) -> None:
+    scores = " ".join(f"{name}={record.get(name)}" for name in metric_names)
+    logger.info(
+        "\n--- [%s] row %d/%d ---\nDIALOGUE:   %s\nREFERENCE:  %s\nPREDICTION: %s\nSCORES:     %s\nREASONING:  %s",
+        record["model"], index, total,
+        _truncate(str(record["dialogue"]), preview_chars),
+        str(record["reference"]).strip(),
+        str(record["prediction"]).strip(),
+        scores,
+        str(record.get("reasoning") or "").strip(),
+    )
+
+
+def summarize(records: list[dict[str, Any]], metric_names: list[str]) -> dict[str, float | int]:
+    scored = [r for r in records if all(r.get(name) is not None for name in metric_names)]
+    n_scored = len(scored)
+
+    averages: dict[str, float | int] = {}
+    for name in metric_names:
+        averages[f"judge_{name}"] = (
+            sum(r[name] for r in scored) / n_scored if n_scored else 0.0
+        )
+    averages["n_scored"] = n_scored
+    averages["n_failed"] = len(records) - n_scored
+    return averages
