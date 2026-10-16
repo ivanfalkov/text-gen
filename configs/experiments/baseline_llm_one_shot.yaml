@@ -1,0 +1,36 @@
+experiment_name: baseline_llm_one_shot
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  gpu_memory_utilization: 0.7
+  max_model_len: 2048
+
+generation:
+  max_tokens: 80
+  temperature: 0.0
+
+prompt: |
+  Summarize the following dialogue in 1-2 sentences. Be concise and capture the main points.
+
+  Example:
+  Dialogue:
+  #Person1#: Hi, Mr. Smith. I'm Doctor Hawkins. Why are you here today?
+  #Person2#: I found it would be a good idea to get a check-up.
+  #Person1#: Yes, well, you haven't had one for 5 years. You should have one every year.
+  #Person2#: I know. I figure as long as there is nothing wrong, why go see the doctor?
+  #Person1#: Well, the best way to avoid serious illnesses is to find out about them early. So try to come at least once a year for your own good.
+  #Person2#: Ok.
+  #Person1#: Let me see here. Your eyes and ears look fine. Take a deep breath, please. Do you smoke, Mr. Smith?
+  #Person2#: Yes.
+  #Person1#: Smoking is the leading cause of lung cancer and heart disease, you know. You really should quit.
+  #Person2#: I've tried hundreds of times, but I just can't seem to kick the habit.
+  #Person1#: Well, we have classes and some medications that might help. I'll give you more information before you leave.
+  #Person2#: Ok, thanks doctor.
+
+  Summary:
+  Mr. Smith's getting a check-up, and Doctor Hawkins advises him to have one every year. Hawkins'll give some information about their classes and medications to help Mr. Smith quit smoking.
+
+  Dialogue:
+  {dialogue}
+
+  Summary:

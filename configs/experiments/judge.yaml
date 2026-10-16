@@ -1,0 +1,23 @@
+experiment_name: judge
+
+judge:
+  model: openai/gpt-oss-120b
+  max_retries: 5
+  sleep_between: 4.0
+  temperature: 0.0
+  max_tokens: 2048
+  dialogue_preview_chars: 200
+  score_min: 1
+  score_max: 5
+  metrics:
+    faithfulness: does the summary only contain facts that are present in the dialogue? (1 = many hallucinations, 5 = fully grounded in the dialogue)
+    completeness: does the summary capture the key points of the dialogue? (1 = misses most key points, 5 = captures all key points)
+    conciseness: is the summary appropriately brief without losing important information? (1 = too verbose or too short, 5 = well-balanced)
+
+data:
+  limit: 50
+
+prediction_files:
+  baseline_rule: artifacts/baseline_rule/20261009-125058/predictions_val_holdout.jsonl
+  baseline_llm: artifacts/baseline_llm/20261013-124648/predictions_val_holdout.jsonl
+  lora: artifacts/lora/20261014-103933/predictions_val_holdout.jsonl

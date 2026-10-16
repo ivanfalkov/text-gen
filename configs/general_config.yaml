@@ -1,0 +1,18 @@
+project_name: text-gen
+
+paths:
+  raw_dir: data/raw
+  jsonl_dir: data/raw/jsonl
+  processed_dir: data/processed
+  artifacts_dir: artifacts
+
+splits:
+  train: train
+  val_holdout: validation
+  val_size: 500
+
+seed: 42
+
+clearml:
+  enabled: true
+  project_name: text-gen

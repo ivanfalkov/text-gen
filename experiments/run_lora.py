@@ -1,0 +1,67 @@
+"""Entry point: LoRA fine-tuning + vLLM inference + evaluation."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+from pathlib import Path
+
+from src.experiments.runner import (
+    evaluate_all,
+    finish_experiment,
+    load_data,
+    save_data_artifacts,
+    save_predictions_artifacts,
+    setup_experiment,
+)
+from src.metrics.compute_metrics import compute_all
+from src.models import lora_finetune
+from src.utils.config import load_config
+from src.utils.logging_utils import setup_logging
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/general_config.yaml"),
+    )
+    parser.add_argument(
+        "--experiment-config",
+        type=Path,
+        default=Path("configs/experiments/lora.yaml"),
+    )
+    parser.add_argument("--verbose", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    setup_logging(level=logging.DEBUG if args.verbose else logging.INFO)
+
+    cfg = {**load_config(args.config), **load_config(args.experiment_config)}
+
+    task, artifacts_dir = setup_experiment(cfg, args.experiment_config)
+
+    data = load_data(cfg)
+    save_data_artifacts(data, artifacts_dir, task)
+
+    adapter_dir = lora_finetune.train(data, cfg, artifacts_dir)
+
+    predictions = lora_finetune.predict_with_lora(data, cfg, adapter_dir)
+    save_predictions_artifacts(data, predictions, artifacts_dir, task)
+
+    evaluate_all(
+        predictions=predictions,
+        data=data,
+        run_dir=artifacts_dir,
+        compute_metrics=compute_all,
+        task=task,
+    )
+
+    finish_experiment(task)
+
+
+if __name__ == "__main__":
+    main()

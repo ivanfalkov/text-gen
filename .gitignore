@@ -1,6 +1,9 @@
 # Virtual environment
 .venv/
-
+.venv_*/
+venv/
+# .ruff_cache
+.ruff_cache/
 # Python
 __pycache__/
 *.py[cod]
@@ -22,3 +25,5 @@ checkpoints/
 
 # PROJECT_NOTES.md
 PROJECT_NOTES.md
+# CUDA keyring
+cuda-keyring_1.1-1_all.deb

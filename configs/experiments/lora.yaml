@@ -1,0 +1,55 @@
+experiment_name: lora
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  max_model_len: 1536           # по замеру токенов
+  gpu_memory_utilization: 0.85
+  kv_cache_dtype: fp8
+  max_num_seqs: 8               # вместо 16, ещё меньше кэша
+  max_num_batched_tokens: 2048
+  enforce_eager: true
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - q_proj
+    - v_proj
+    - k_proj
+    - o_proj
+  bias: none
+
+training:
+  output_dir: checkpoints
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0002
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.03
+  logging_steps: 10
+  eval_strategy: epoch
+  save_strategy: epoch
+  save_total_limit: 1
+  metric_for_best_model: eval_loss
+  greater_is_better: false
+  bf16: true
+  optim: adamw_8bit
+  gradient_checkpointing: true
+  report_to: "clearml"
+  load_best_model_at_end: true
+  remove_unused_columns: true
+
+generation:
+  max_tokens: 80
+  temperature: 0.0
+
+prompt: |
+  Summarize the following dialogue in 1-2 sentences. Be concise and capture the main points.
+
+  Dialogue:
+  {dialogue}
+
+  Summary:

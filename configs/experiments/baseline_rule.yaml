@@ -1,0 +1,10 @@
+experiment_name: baseline_rule
+
+model:
+  name: first_last_sentence
+  max_words: 50
+  sentence_splitter: regex
+
+metrics:
+  - rouge
+  - bleu

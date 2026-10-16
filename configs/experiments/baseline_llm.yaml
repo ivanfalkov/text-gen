@@ -1,0 +1,18 @@
+experiment_name: baseline_llm
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  gpu_memory_utilization: 0.7
+  max_model_len: 2048
+
+generation:
+  max_tokens: 80
+  temperature: 0.0
+
+prompt: |
+  Summarize the following dialogue in 1-2 sentences. Be concise and capture the main points.
+
+  Dialogue:
+  {dialogue}
+
+  Summary:
